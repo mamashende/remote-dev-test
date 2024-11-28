@@ -1,0 +1,141 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Todos</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+  </head>
+
+  <body class="bg-blue-200">
+    <div class="w-full h-full flex content-center justify-center mt-8">
+      <div class="bg-white shadow-md rounded px-8 pt-6 py-8 mb-4">
+        <h1 class="block text-grey-800 text-md font-bold mb-2">Todos</h1>
+        <div class="flex">
+          <input
+            type="text"
+            id="title"
+            placeholder="Title"
+            class="shadow appearance-none border rounded w-full py-2 px-3 text-grey-darker mr-2"
+          />
+          <input
+            type="text"
+            id="content"
+            placeholder="Content"
+            class="shadow appearance-none border rounded w-full py-2 px-3 text-grey-darker mr-2"
+          />
+          <button
+            id="create"
+            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          >
+            Create
+          </button>
+        </div>
+        <ul id="todo-list" class="mt-4">
+          <!-- Todos will be populated here -->
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      const todos = JSON.parse('$TODOS');
+      const todoList = document.getElementById('todo-list');
+    
+      function populateTodos() {
+        todoList.innerHTML = '';
+        todos.forEach(todo => {
+          const li = document.createElement('li');
+          li.className = 'border-b border-grey-light py-2 flex items-center';
+          li.innerHTML = `
+            <input type="checkbox" class="mr-2" ${todo.status ? 'checked' : ''} data-id="${todo.id}">
+            <span class="flex-1">${todo.title}: ${todo.content}</span>
+            <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded ml-2" data-id="${todo.id}">Delete</button>
+          `;
+          todoList.appendChild(li);
+        });
+      }
+    
+      populateTodos();
+    
+      async function createTodo() {
+        const titleInput = document.getElementById('title');
+        const contentInput = document.getElementById('content');
+        const newTodo = {
+          id: Date.now(), // 临时ID
+          todo_title: titleInput.value,
+          todo_content: contentInput.value,
+          status: false
+        };
+        const temp_data = {
+          id: Date.now(), // 临时ID
+          title: titleInput.value,
+          content: contentInput.value,
+          status: false
+        };
+        // 乐观更新
+        todos.push(temp_data);
+        populateTodos();
+    
+        const response = await fetch('/todos', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(newTodo)
+        });
+    
+        if (response.ok) {
+          const data = await response.json();
+          // 更新临时ID为后端返回的真实ID
+          const index = todos.findIndex(todo => todo.id === newTodo.id);
+          if (index !== -1) {
+            todos[index].id = data.id;
+          }
+        } else {
+          // 回滚乐观更新
+          todos.pop();
+          populateTodos();
+        }
+    
+        titleInput.value = '';
+        contentInput.value = '';
+      }
+    
+      async function deleteTodo(id) {
+        // 乐观更新
+        const index = todos.findIndex(todo => todo.id === id);
+        const [deletedTodo] = todos.splice(index, 1);
+        populateTodos();
+    
+        const response = await fetch('/todos', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ id })
+        });
+    
+        if (!response.ok) {
+          // 回滚乐观更新
+          todos.splice(index, 0, deletedTodo);
+          populateTodos();
+        }
+      }
+    
+      document.getElementById('create').addEventListener('click', createTodo);
+      todoList.addEventListener('click', (event) => {
+        if (event.target.tagName === 'BUTTON') {
+          const id = parseInt(event.target.getAttribute('data-id'), 10);
+          deleteTodo(id);
+        } else if (event.target.tagName === 'INPUT' && event.target.type === 'checkbox') {
+          const id = parseInt(event.target.getAttribute('data-id'), 10);
+          const status = event.target.checked;
+          updateTodoStatus(id, status);
+        }
+      });
+    </script>
+  </body>
+</html>
