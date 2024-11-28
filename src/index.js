@@ -30,7 +30,6 @@ export default {
     async function updateTodos(request) {
       const body = await request.json();
       const { id, status } = body;
-
       if (id === undefined || status === undefined) {
         return new Response(JSON.stringify({ error: 'Invalid data' }), { status: 400 });
       }
