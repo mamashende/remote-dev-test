@@ -23,7 +23,10 @@ export default {
       );
 
       return new Response(body, {
-        headers: { 'Content-Type': 'text/html' }
+        headers: {
+          'Content-Type': 'text/html',
+          'Cache-Control': 'max-age=3600' // 缓存1小时
+        }
       });
     }
 
